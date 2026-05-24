@@ -205,6 +205,22 @@ function toast(msg) {
   toastT = setTimeout(function() { el.className = ''; }, 2400);
 }
 
+// ── JS alive indicator ─────────────────────────────────────────────────────
+// If JS runs, the button turns green. If it stays purple, scripts are blocked.
+var startBtn = document.getElementById('start-btn');
+if (startBtn) {
+  startBtn.style.background = '#22c55e';
+  startBtn.textContent = 'Start Game ♠ (tap me!)';
+}
+
+// ── Catch any JS errors and show them on screen ────────────────────────────
+window.onerror = function(msg, src, line) {
+  var div = document.createElement('div');
+  div.style.cssText = 'background:#ef4444;color:#fff;padding:1em;margin:1em;border-radius:8px;font-size:.85em;word-break:break-all';
+  div.textContent = 'JS Error: ' + msg + ' (line ' + line + ')';
+  document.body.insertBefore(div, document.body.firstChild);
+};
+
 // ── Boot ───────────────────────────────────────────────────────────────────
 G = storeLoad();
 if (G) {
