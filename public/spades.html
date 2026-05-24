@@ -3,435 +3,167 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>♠ Spades Scorer — 3 Players</title>
-  <meta name="description" content="3-player Spades score tracker. Works offline, no install needed." />
+  <title>Spades Scorer - 3 Players</title>
   <style>
-    /* ── Reset & tokens ─────────────────────────────────────────────── */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --bg:        #0f1117;
-      --surface:   #1a1d27;
-      --surface2:  #22263a;
-      --border:    #2e3350;
-      --accent:    #6c63ff;
-      --accent2:   #a78bfa;
-      --danger:    #ef4444;
-      --success:   #22c55e;
-      --warn:      #f59e0b;
-      --text:      #e2e8f0;
-      --text-muted:#8892a4;
-      --radius:    12px;
-      --shadow:    0 4px 24px rgba(0,0,0,.45);
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;--border:#2e3350;
+      --accent:#6c63ff;--accent2:#a78bfa;--danger:#ef4444;--success:#22c55e;
+      --warn:#f59e0b;--text:#e2e8f0;--muted:#8892a4;--r:12px;
+      --shadow:0 4px 24px rgba(0,0,0,.45);
     }
-
-    html { background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, sans-serif; font-size: 16px; }
-    body { min-height: 100dvh; display: flex; flex-direction: column; }
-
-    /* ── App shell ──────────────────────────────────────────────────── */
-    .app-header {
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      padding: 0.8em 1.2em;
-      display: flex;
-      align-items: center;
-      gap: 0.6em;
-      position: sticky;
-      top: 0;
-      z-index: 10;
-    }
-    .app-header .logo { font-size: 1.5em; line-height: 1; }
-    .app-header h1 { font-size: 1.1em; font-weight: 700; color: var(--text); }
-    .app-header .subtitle {
-      font-size: 0.78em;
-      color: var(--text-muted);
-      margin-left: auto;
-      white-space: nowrap;
-    }
-
-    main { flex: 1; padding: 1.5em 1em 3em; max-width: 860px; margin: 0 auto; width: 100%; }
-
-    /* ── Screens ────────────────────────────────────────────────────── */
-    .screen { display: none; }
-    .screen.active { display: block; }
-
-    /* ── Setup ──────────────────────────────────────────────────────── */
-    .setup-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 2em;
-      max-width: 480px;
-      margin: 2em auto;
-      box-shadow: var(--shadow);
-    }
-    .setup-card h2 { font-size: 1.3em; margin-bottom: 1.2em; color: var(--accent2); }
-
-    .field { margin-bottom: 1.1em; }
-    .field label { display: block; font-size: 0.82em; font-weight: 600; color: var(--text-muted); margin-bottom: 0.35em; text-transform: uppercase; letter-spacing: .04em; }
-    .field input[type="text"],
-    .field input[type="number"] {
-      width: 100%;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text);
-      font-size: 1em;
-      padding: 0.5em 0.75em;
-      transition: border-color .15s;
-    }
-    .field input:focus { outline: none; border-color: var(--accent); }
-
-    .names-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.7em; }
-    .names-grid .field { margin-bottom: 0; }
-
-    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7em; }
-
-    .divider { border: none; border-top: 1px solid var(--border); margin: 1.2em 0; }
-
-    /* ── Buttons ────────────────────────────────────────────────────── */
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4em;
-      padding: 0.55em 1.3em;
-      border: none;
-      border-radius: 8px;
-      font-size: 0.9em;
-      font-weight: 700;
-      cursor: pointer;
-      transition: filter .15s, transform .1s;
-      white-space: nowrap;
-    }
-    .btn:hover { filter: brightness(1.12); }
-    .btn:active { transform: scale(.97); }
-    .btn-primary  { background: var(--accent);  color: #fff; }
-    .btn-success  { background: var(--success); color: #fff; }
-    .btn-danger   { background: var(--danger);  color: #fff; }
-    .btn-ghost    { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
-    .btn-sm       { padding: .35em .85em; font-size: .8em; }
-    .btn-full     { width: 100%; justify-content: center; }
-
-    /* ── Scoreboard ─────────────────────────────────────────────────── */
-    .scoreboard {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 0.9em;
-      margin-bottom: 1.2em;
-    }
-    .score-card {
-      background: var(--surface);
-      border: 2px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1em 0.75em;
-      text-align: center;
-      transition: border-color .2s;
-      position: relative;
-      overflow: hidden;
-    }
-    .score-card.leader { border-color: var(--warn); }
-    .score-card.leader::after {
-      content: '👑';
-      position: absolute;
-      top: 0.3em; right: 0.45em;
-      font-size: 0.85em;
-    }
-    .score-card .p-name {
-      font-size: 0.85em;
-      font-weight: 700;
-      color: var(--text-muted);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      margin-bottom: 0.2em;
-      text-transform: uppercase;
-      letter-spacing: .05em;
-    }
-    .score-card .p-score {
-      font-size: 2.4em;
-      font-weight: 900;
-      color: var(--accent2);
-      line-height: 1;
-    }
-    .score-card .p-score.neg { color: var(--danger); }
-    .score-card .p-bags {
-      font-size: 0.72em;
-      color: var(--text-muted);
-      margin-top: 0.4em;
-    }
-
-    .round-label {
-      text-align: center;
-      font-size: 0.8em;
-      color: var(--text-muted);
-      margin-bottom: 1em;
-    }
-
-    /* ── Entry section ──────────────────────────────────────────────── */
-    .entry-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1.4em;
-      margin-bottom: 1.2em;
-      box-shadow: var(--shadow);
-    }
-    .entry-card h2 {
-      font-size: 1em;
-      color: var(--accent2);
-      margin-bottom: 1em;
-      text-transform: uppercase;
-      letter-spacing: .06em;
-    }
-    .entry-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1em;
-      margin-bottom: 1.2em;
-    }
-    .entry-col {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.5em;
-    }
-    .entry-col .e-name {
-      font-size: 0.8em;
-      font-weight: 700;
-      color: var(--text-muted);
-      text-align: center;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      width: 100%;
-      text-transform: uppercase;
-      letter-spacing: .04em;
-    }
-    .entry-col .e-sub {
-      font-size: 0.72em;
-      color: var(--text-muted);
-    }
-    .entry-col input[type="number"] {
-      width: 72px;
-      background: var(--surface2);
-      border: 2px solid var(--border);
-      border-radius: 8px;
-      color: var(--text);
-      font-size: 1.5em;
-      font-weight: 700;
-      text-align: center;
-      padding: 0.2em 0.1em;
-      transition: border-color .15s;
-      -moz-appearance: textfield;
-    }
-    .entry-col input[type="number"]::-webkit-inner-spin-button,
-    .entry-col input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
-    .entry-col input[type="number"]:focus { outline: none; border-color: var(--accent); }
-    .entry-col input[type="number"]:disabled { opacity: .35; }
-
-    /* Stepper buttons */
-    .stepper { display: flex; align-items: center; gap: 0.4em; }
-    .stepper-btn {
-      width: 28px; height: 28px;
-      border-radius: 50%;
-      border: 1px solid var(--border);
-      background: var(--surface2);
-      color: var(--text);
-      font-size: 1.1em;
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer;
-      transition: background .12s;
-      flex-shrink: 0;
-      line-height: 1;
-      padding: 0;
-    }
-    .stepper-btn:hover { background: var(--border); }
-
-    .nil-label {
-      display: flex;
-      align-items: center;
-      gap: 0.35em;
-      font-size: 0.78em;
-      color: var(--text-muted);
-      cursor: pointer;
-      user-select: none;
-    }
-    .nil-label input[type="checkbox"] { cursor: pointer; accent-color: var(--accent); width: 14px; height: 14px; }
-
-    /* Tricks total badge */
-    .tricks-total {
-      text-align: center;
-      font-size: 0.82em;
-      color: var(--text-muted);
-      margin-bottom: 0.8em;
-    }
-    .tricks-total .count { font-weight: 700; }
-    .tricks-total .count.ok { color: var(--success); }
-    .tricks-total .count.bad { color: var(--danger); }
-
-    /* Actions row */
-    .actions {
-      display: flex;
-      gap: 0.6em;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-    .actions .spacer { flex: 1; }
-
-    /* ── Win screen ─────────────────────────────────────────────────── */
-    #win-screen {
-      text-align: center;
-      padding: 3em 1em;
-    }
-    #win-screen .trophy { font-size: 5em; margin-bottom: 0.2em; }
-    #win-screen h2 { font-size: 2em; color: var(--warn); margin-bottom: 0.4em; }
-    #win-screen .final-scores {
-      display: flex;
-      justify-content: center;
-      gap: 1.5em;
-      flex-wrap: wrap;
-      margin: 1.5em 0;
-    }
-    #win-screen .fs-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1em 1.5em;
-      text-align: center;
-      min-width: 110px;
-    }
-    #win-screen .fs-card .fs-name { font-size: 0.8em; color: var(--text-muted); margin-bottom: 0.3em; text-transform: uppercase; letter-spacing: .04em; }
-    #win-screen .fs-card .fs-val  { font-size: 1.8em; font-weight: 900; color: var(--accent2); }
-    #win-screen .fs-card.winner   { border-color: var(--warn); }
-
-    /* ── History ────────────────────────────────────────────────────── */
-    .history-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1.2em;
-      margin-top: 1em;
-    }
-    .history-card h3 { font-size: 0.85em; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 0.8em; }
-    .history-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.8em; }
-    th, td { padding: 0.4em 0.5em; text-align: center; border-bottom: 1px solid var(--border); }
-    th { color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 0.78em; letter-spacing: .05em; background: var(--surface2); }
-    tr:last-child td { border-bottom: none; }
-    td.pos { color: var(--success); font-weight: 700; }
-    td.neg { color: var(--danger);  font-weight: 700; }
-    td.nil-ok { color: var(--success); font-style: italic; }
-    td.nil-bad{ color: var(--danger);  font-style: italic; }
-
-    /* ── Toast ──────────────────────────────────────────────────────── */
-    #toast {
-      position: fixed;
-      bottom: 1.5em;
-      left: 50%;
-      transform: translateX(-50%) translateY(4em);
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      color: var(--text);
-      padding: 0.65em 1.3em;
-      border-radius: 999px;
-      font-size: 0.85em;
-      font-weight: 600;
-      box-shadow: var(--shadow);
-      transition: transform .25s cubic-bezier(.34,1.56,.64,1), opacity .2s;
-      opacity: 0;
-      pointer-events: none;
-      z-index: 100;
-    }
-    #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
-
-    /* ── Responsive ─────────────────────────────────────────────────── */
-    @media (max-width: 540px) {
-      .scoreboard  { grid-template-columns: repeat(3, 1fr); gap: 0.5em; }
-      .score-card  { padding: 0.7em 0.4em; }
-      .score-card .p-score { font-size: 1.8em; }
-      .entry-grid  { gap: 0.5em; }
-      .entry-col input[type="number"] { width: 58px; font-size: 1.25em; }
-      .setup-card  { padding: 1.3em; }
-      .names-grid  { grid-template-columns: 1fr; }
-      .field-row   { grid-template-columns: 1fr; }
+    html{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,sans-serif;font-size:16px}
+    body{min-height:100dvh;display:flex;flex-direction:column}
+    .app-header{background:var(--surface);border-bottom:1px solid var(--border);padding:.8em 1.2em;display:flex;align-items:center;gap:.6em;position:sticky;top:0;z-index:10}
+    .app-header .logo{font-size:1.5em}
+    .app-header h1{font-size:1.1em;font-weight:700}
+    .app-header .sub{font-size:.78em;color:var(--muted);margin-left:auto}
+    main{flex:1;padding:1.5em 1em 3em;max-width:860px;margin:0 auto;width:100%}
+    /* screens */
+    .screen{display:none}
+    .screen.on{display:block}
+    /* setup */
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:2em;box-shadow:var(--shadow)}
+    .setup-wrap{max-width:480px;margin:2em auto}
+    .card h2{font-size:1.3em;margin-bottom:1.2em;color:var(--accent2)}
+    .field{margin-bottom:1.1em}
+    .field label{display:block;font-size:.82em;font-weight:600;color:var(--muted);margin-bottom:.35em;text-transform:uppercase;letter-spacing:.04em}
+    .field input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:1em;padding:.5em .75em}
+    .field input:focus{outline:none;border-color:var(--accent)}
+    .ng{display:grid;grid-template-columns:repeat(3,1fr);gap:.7em}
+    .ng .field{margin:0}
+    .fr{display:grid;grid-template-columns:1fr 1fr;gap:.7em}
+    hr.div{border:none;border-top:1px solid var(--border);margin:1.2em 0}
+    /* buttons */
+    .btn{display:inline-flex;align-items:center;gap:.4em;padding:.55em 1.3em;border:none;border-radius:8px;font-size:.9em;font-weight:700;cursor:pointer;transition:filter .15s,transform .1s;white-space:nowrap}
+    .btn:hover{filter:brightness(1.12)}
+    .btn:active{transform:scale(.97)}
+    .btn-p{background:var(--accent);color:#fff}
+    .btn-g{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+    .btn-sm{padding:.35em .85em;font-size:.8em}
+    .btn-full{width:100%;justify-content:center;margin-top:.5em}
+    /* scoreboard */
+    .scoreboard{display:grid;grid-template-columns:repeat(3,1fr);gap:.9em;margin-bottom:1.2em}
+    .sc{background:var(--surface);border:2px solid var(--border);border-radius:var(--r);padding:1em .75em;text-align:center;position:relative;overflow:hidden}
+    .sc.lead{border-color:var(--warn)}
+    .sc.lead::after{content:'👑';position:absolute;top:.3em;right:.45em;font-size:.85em}
+    .sc .pn{font-size:.85em;font-weight:700;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:.2em;text-transform:uppercase;letter-spacing:.05em}
+    .sc .ps{font-size:2.4em;font-weight:900;color:var(--accent2);line-height:1}
+    .sc .ps.neg{color:var(--danger)}
+    .sc .pb{font-size:.72em;color:var(--muted);margin-top:.4em}
+    .rl{text-align:center;font-size:.8em;color:var(--muted);margin-bottom:1em}
+    /* entry */
+    .entry-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.4em;margin-bottom:1.2em;box-shadow:var(--shadow)}
+    .entry-card h2{font-size:1em;color:var(--accent2);margin-bottom:1em;text-transform:uppercase;letter-spacing:.06em}
+    .eg{display:grid;grid-template-columns:repeat(3,1fr);gap:1em;margin-bottom:1.2em}
+    .ec{display:flex;flex-direction:column;align-items:center;gap:.5em}
+    .ec .en{font-size:.8em;font-weight:700;color:var(--muted);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;text-transform:uppercase;letter-spacing:.04em}
+    .ec .esub{font-size:.72em;color:var(--muted)}
+    .ec input[type="number"]{width:72px;background:var(--surface2);border:2px solid var(--border);border-radius:8px;color:var(--text);font-size:1.5em;font-weight:700;text-align:center;padding:.2em .1em;-moz-appearance:textfield}
+    .ec input[type="number"]::-webkit-inner-spin-button,.ec input[type="number"]::-webkit-outer-spin-button{-webkit-appearance:none}
+    .ec input[type="number"]:focus{outline:none;border-color:var(--accent)}
+    .ec input[type="number"]:disabled{opacity:.35}
+    .stepper{display:flex;align-items:center;gap:.4em}
+    .sb{width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:1.1em;display:flex;align-items:center;justify-content:center;cursor:pointer;line-height:1;padding:0}
+    .sb:hover{background:var(--border)}
+    .nil-lbl{display:flex;align-items:center;gap:.35em;font-size:.78em;color:var(--muted);cursor:pointer;user-select:none}
+    .nil-lbl input{cursor:pointer;accent-color:var(--accent);width:14px;height:14px}
+    .tt{text-align:center;font-size:.82em;color:var(--muted);margin-bottom:.8em}
+    .tt .cnt{font-weight:700}
+    .tt .cnt.ok{color:var(--success)}
+    .tt .cnt.bad{color:var(--danger)}
+    .actions{display:flex;gap:.6em;flex-wrap:wrap;align-items:center}
+    .spacer{flex:1}
+    /* history */
+    .hcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.2em;margin-top:1em}
+    .hcard h3{font-size:.85em;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.8em}
+    .hwrap{overflow-x:auto}
+    table{width:100%;border-collapse:collapse;font-size:.8em}
+    th,td{padding:.4em .5em;text-align:center;border-bottom:1px solid var(--border)}
+    th{color:var(--muted);font-weight:600;text-transform:uppercase;font-size:.78em;letter-spacing:.05em;background:var(--surface2)}
+    tr:last-child td{border-bottom:none}
+    td.pos{color:var(--success);font-weight:700}
+    td.neg{color:var(--danger);font-weight:700}
+    td.nok{color:var(--success);font-style:italic}
+    td.nbad{color:var(--danger);font-style:italic}
+    /* win */
+    #win-screen{text-align:center;padding:3em 1em}
+    #win-screen .trophy{font-size:5em;margin-bottom:.2em}
+    #win-screen h2{font-size:2em;color:var(--warn);margin-bottom:.4em}
+    .fscores{display:flex;justify-content:center;gap:1.5em;flex-wrap:wrap;margin:1.5em 0}
+    .fsc{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1em 1.5em;text-align:center;min-width:110px}
+    .fsc .fn{font-size:.8em;color:var(--muted);margin-bottom:.3em;text-transform:uppercase;letter-spacing:.04em}
+    .fsc .fv{font-size:1.8em;font-weight:900;color:var(--accent2)}
+    .fsc.win{border-color:var(--warn)}
+    /* toast */
+    #toast{position:fixed;bottom:1.5em;left:50%;transform:translateX(-50%) translateY(4em);background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:.65em 1.3em;border-radius:999px;font-size:.85em;font-weight:600;box-shadow:var(--shadow);transition:transform .25s,opacity .2s;opacity:0;pointer-events:none;z-index:100}
+    #toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+    @media(max-width:540px){
+      .scoreboard,.eg{grid-template-columns:repeat(3,1fr);gap:.5em}
+      .sc{padding:.7em .4em}.sc .ps{font-size:1.8em}
+      .ec input[type="number"]{width:58px;font-size:1.25em}
+      .ng{grid-template-columns:1fr}.fr{grid-template-columns:1fr}
     }
   </style>
 </head>
 <body>
 
 <header class="app-header">
-  <span class="logo">♠</span>
+  <span class="logo">&#9824;</span>
   <h1>Spades Scorer</h1>
-  <span class="subtitle">3-player game</span>
+  <span class="sub">3-player</span>
 </header>
 
 <main>
 
-  <!-- ══════════ SETUP ══════════ -->
-  <div id="setup-screen" class="screen active">
-    <div class="setup-card">
-      <h2>New Game</h2>
-
-      <div class="names-grid">
-        <div class="field"><label>Player 1</label><input type="text" id="n0" value="Player 1" maxlength="14" /></div>
-        <div class="field"><label>Player 2</label><input type="text" id="n1" value="Player 2" maxlength="14" /></div>
-        <div class="field"><label>Player 3</label><input type="text" id="n2" value="Player 3" maxlength="14" /></div>
-      </div>
-
-      <hr class="divider" />
-
-      <div class="field-row">
-        <div class="field">
-          <label>Winning Score</label>
-          <input type="number" id="cfg-target" value="300" min="50" max="5000" step="50" />
+  <!-- SETUP -->
+  <div id="setup-screen" class="screen on">
+    <div class="setup-wrap">
+      <div class="card">
+        <h2>New Game</h2>
+        <div class="ng">
+          <div class="field"><label>Player 1</label><input type="text" id="n0" value="Player 1" maxlength="14" /></div>
+          <div class="field"><label>Player 2</label><input type="text" id="n1" value="Player 2" maxlength="14" /></div>
+          <div class="field"><label>Player 3</label><input type="text" id="n2" value="Player 3" maxlength="14" /></div>
         </div>
-        <div class="field">
-          <label>Bag Penalty At (0 = off)</label>
-          <input type="number" id="cfg-bags" value="10" min="0" max="20" step="1" />
+        <hr class="div" />
+        <div class="fr">
+          <div class="field"><label>Winning Score</label><input type="number" id="cfg-target" value="300" min="50" max="5000" step="50" /></div>
+          <div class="field"><label>Bag Penalty At (0=off)</label><input type="number" id="cfg-bags" value="10" min="0" max="20" step="1" /></div>
         </div>
+        <button type="button" class="btn btn-p btn-full" onclick="startGame()">Start Game &#9824;</button>
       </div>
-
-      <button class="btn btn-primary btn-full" id="start-btn" style="margin-top:0.5em">Start Game ♠</button>
     </div>
   </div>
 
-  <!-- ══════════ GAME ══════════ -->
+  <!-- GAME -->
   <div id="game-screen" class="screen">
-
     <div class="scoreboard" id="scoreboard"></div>
-    <p class="round-label" id="round-label"></p>
-
+    <p class="rl" id="round-label"></p>
     <div class="entry-card">
       <h2 id="entry-title"></h2>
-      <div class="entry-grid" id="entry-grid"></div>
-      <div id="tricks-total" class="tricks-total" style="display:none"></div>
+      <div class="eg" id="entry-grid"></div>
+      <div id="tricks-total" class="tt" style="display:none"></div>
       <div class="actions">
-        <button class="btn btn-primary" id="phase-btn"></button>
-        <button class="btn btn-ghost btn-sm" id="undo-btn" style="display:none">↩ Undo</button>
+        <button type="button" class="btn btn-p" id="phase-btn" onclick="phaseClick()"></button>
+        <button type="button" class="btn btn-g btn-sm" id="undo-btn" onclick="undoRound()" style="display:none">&#8617; Undo</button>
         <div class="spacer"></div>
-        <button class="btn btn-ghost btn-sm" id="new-game-btn">New Game</button>
+        <button type="button" class="btn btn-g btn-sm" onclick="newGame()">New Game</button>
       </div>
     </div>
-
-    <div class="history-card" id="history-card" style="display:none">
+    <div class="hcard" id="hcard" style="display:none">
       <h3>History</h3>
-      <div class="history-wrap">
-        <table>
-          <thead id="hist-head"></thead>
-          <tbody id="hist-body"></tbody>
-        </table>
-      </div>
+      <div class="hwrap"><table><thead id="hhead"></thead><tbody id="hbody"></tbody></table></div>
     </div>
-
   </div>
 
-  <!-- ══════════ WIN ══════════ -->
+  <!-- WIN -->
   <div id="win-screen" class="screen">
-    <div class="trophy">🏆</div>
+    <div class="trophy">&#127942;</div>
     <h2 id="win-title"></h2>
-    <p id="win-sub" style="color:var(--text-muted);margin-bottom:1em"></p>
-    <div class="final-scores" id="final-scores"></div>
-    <button class="btn btn-primary" id="play-again-btn">Play Again ♠</button>
+    <p id="win-sub" style="color:var(--muted);margin-bottom:1em"></p>
+    <div class="fscores" id="fscores"></div>
+    <button type="button" class="btn btn-p" onclick="goSetup()">Play Again &#9824;</button>
   </div>
 
 </main>
@@ -439,384 +171,335 @@
 <div id="toast"></div>
 
 <script>
-(function () {
-  'use strict';
+// ── State ──────────────────────────────────────────────────────────────────
+var KEY = 'spades3_v3';
+var G   = null;
 
-  /* ── Persistence (resilient — localStorage may be blocked) ──────────── */
-  var KEY = 'spades3_v2';
-  var G = null;
+// ── Storage ────────────────────────────────────────────────────────────────
+function storeSave() {
+  try { localStorage.setItem(KEY, JSON.stringify(G)); } catch(e) {}
+}
+function storeLoad() {
+  try { var s = localStorage.getItem(KEY); return s ? JSON.parse(s) : null; } catch(e) { return null; }
+}
+function storeClear() {
+  try { localStorage.removeItem(KEY); } catch(e) {}
+}
 
-  function save() {
-    try { localStorage.setItem(KEY, JSON.stringify(G)); } catch (e) { /* storage blocked — game still works */ }
+// ── Screen switching ───────────────────────────────────────────────────────
+function showScreen(id) {
+  var ids = ['setup-screen','game-screen','win-screen'];
+  for (var i = 0; i < ids.length; i++) {
+    var el = document.getElementById(ids[i]);
+    if (el) el.className = 'screen' + (ids[i] === id ? ' on' : '');
   }
-  function load() {
-    try { return JSON.parse(localStorage.getItem(KEY)); } catch (e) { return null; }
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────
+var toastT;
+function toast(msg) {
+  var el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show';
+  clearTimeout(toastT);
+  toastT = setTimeout(function() { el.className = ''; }, 2400);
+}
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+G = storeLoad();
+if (G) {
+  if (G.gameOver) { showScreen('win-screen'); renderWin(); }
+  else            { showScreen('game-screen'); renderAll(); }
+}
+
+// ── Start game ─────────────────────────────────────────────────────────────
+function startGame() {
+  var n0 = document.getElementById('n0').value.trim() || 'Player 1';
+  var n1 = document.getElementById('n1').value.trim() || 'Player 2';
+  var n2 = document.getElementById('n2').value.trim() || 'Player 3';
+  var tgt = parseInt(document.getElementById('cfg-target').value, 10);
+  var bag = parseInt(document.getElementById('cfg-bags').value,   10);
+  if (isNaN(tgt) || tgt < 50)  tgt = 300;
+  if (isNaN(bag) || bag < 0)   bag = 10;
+
+  G = {
+    names:    [n0, n1, n2],
+    target:   tgt,
+    bagLimit: bag,
+    scores:   [0, 0, 0],
+    bags:     [0, 0, 0],
+    round:    1,
+    phase:    'bid',
+    bids:     [null, null, null],
+    nils:     [false, false, false],
+    history:  [],
+    gameOver: false
+  };
+  storeSave();
+  showScreen('game-screen');
+  renderAll();
+}
+
+// ── New game / setup ───────────────────────────────────────────────────────
+function newGame() {
+  if (!confirm('Start a new game? Current scores will be lost.')) return;
+  goSetup();
+}
+function goSetup() {
+  storeClear();
+  G = null;
+  showScreen('setup-screen');
+}
+
+// ── Phase button dispatcher ────────────────────────────────────────────────
+function phaseClick() {
+  if (!G) return;
+  if (G.phase === 'bid') submitBids();
+  else submitTricks();
+}
+
+// ── Undo ───────────────────────────────────────────────────────────────────
+function undoRound() {
+  if (!G || !G.history.length) return;
+  if (!confirm('Undo the last completed round?')) return;
+  var snap = G.history.pop();
+  G.scores   = snap.sb.slice();
+  G.bags     = snap.bb.slice();
+  G.round    = snap.round;
+  G.phase    = 'bid';
+  G.bids     = [null, null, null];
+  G.nils     = [false, false, false];
+  G.gameOver = false;
+  storeSave();
+  renderAll();
+  toast('Last round undone');
+}
+
+// ── Render all ─────────────────────────────────────────────────────────────
+function renderAll() {
+  renderScoreboard();
+  renderEntry();
+  renderHistory();
+  var ub = document.getElementById('undo-btn');
+  if (ub) ub.style.display = G.history.length ? 'inline-flex' : 'none';
+}
+
+// ── Scoreboard ─────────────────────────────────────────────────────────────
+function renderScoreboard() {
+  var max = Math.max(G.scores[0], G.scores[1], G.scores[2]);
+  var html = '';
+  for (var i = 0; i < 3; i++) {
+    var s = G.scores[i], b = G.bags[i];
+    var lead = (s === max && s > 0);
+    var bagStr = b + ' bag' + (b !== 1 ? 's' : '') + (G.bagLimit > 0 ? ' / ' + G.bagLimit : '');
+    html += '<div class="sc' + (lead ? ' lead' : '') + '">'
+          + '<div class="pn">' + esc(G.names[i]) + '</div>'
+          + '<div class="ps' + (s < 0 ? ' neg' : '') + '">' + s + '</div>'
+          + '<div class="pb">' + bagStr + '</div>'
+          + '</div>';
   }
-  function clearSave() {
-    try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ }
-  }
+  document.getElementById('scoreboard').innerHTML = html;
+  document.getElementById('round-label').textContent =
+    'Round ' + G.round + '  |  Target: ' + G.target + ' pts';
+}
 
-  /* ── DOM helpers ─────────────────────────────────────────────────────── */
-  function $(id) { return document.getElementById(id); }
+// ── Entry form ─────────────────────────────────────────────────────────────
+function renderEntry() {
+  var isBid = (G.phase === 'bid');
+  document.getElementById('entry-title').textContent =
+    isBid ? ('Round ' + G.round + ' - Place Bids')
+           : ('Round ' + G.round + ' - Tricks Taken');
+  document.getElementById('phase-btn').textContent =
+    isBid ? 'Lock Bids' : 'Score Round';
 
-  var screenSetup = $('setup-screen');
-  var screenGame  = $('game-screen');
-  var screenWin   = $('win-screen');
-
-  function showScreen(el) {
-    screenSetup.classList.remove('active');
-    screenGame.classList.remove('active');
-    screenWin.classList.remove('active');
-    el.classList.add('active');
-  }
-
-  /* ── Toast ───────────────────────────────────────────────────────────── */
-  var toastTimer;
-  function toast(msg) {
-    var el = $('toast');
-    el.textContent = msg;
-    el.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { el.classList.remove('show'); }, 2400);
-  }
-
-  /* ── Boot ────────────────────────────────────────────────────────────── */
-  G = load();
-  if (G) {
-    if (G.gameOver) { showScreen(screenWin);  renderWin();  }
-    else            { showScreen(screenGame); renderGame(); }
-  }
-
-  /* ── Setup ───────────────────────────────────────────────────────────── */
-  $('start-btn').addEventListener('click', function () {
-    var names = [
-      ($('n0').value.trim() || 'Player 1'),
-      ($('n1').value.trim() || 'Player 2'),
-      ($('n2').value.trim() || 'Player 3'),
-    ];
-    var target   = Math.max(50, parseInt($('cfg-target').value, 10) || 300);
-    var bagInput = parseInt($('cfg-bags').value, 10);
-    var bagLimit = isNaN(bagInput) ? 10 : Math.max(0, bagInput);
-
-    G = {
-      names:    names,
-      target:   target,
-      bagLimit: bagLimit,
-      scores:   [0, 0, 0],
-      bags:     [0, 0, 0],
-      round:    1,
-      phase:    'bid',
-      bids:     [null, null, null],
-      nils:     [false, false, false],
-      history:  [],
-      gameOver: false,
-    };
-    save();
-    showScreen(screenGame);
-    renderGame();
-  });
-
-  /* ── New game / Play again ────────────────────────────────────────────── */
-  $('new-game-btn').addEventListener('click', function () {
-    if (!confirm('Start a new game? Current scores will be lost.')) return;
-    goSetup();
-  });
-  $('play-again-btn').addEventListener('click', goSetup);
-
-  function goSetup() {
-    clearSave();
-    G = null;
-    showScreen(screenSetup);
-  }
-
-  /* ── Phase button ─────────────────────────────────────────────────────── */
-  $('phase-btn').addEventListener('click', function () {
-    if (!G) return;
-    if (G.phase === 'bid') submitBids();
-    else submitTricks();
-  });
-
-  /* ── Undo ─────────────────────────────────────────────────────────────── */
-  $('undo-btn').addEventListener('click', function () {
-    if (!G || !G.history.length) return;
-    if (!confirm('Undo the last completed round?')) return;
-    var snap = G.history.pop();
-    G.scores   = snap.scoresBefore.slice();
-    G.bags     = snap.bagsBefore.slice();
-    G.round    = snap.round;
-    G.phase    = 'bid';
-    G.bids     = [null, null, null];
-    G.nils     = [false, false, false];
-    G.gameOver = false;
-    save();
-    renderGame();
-    toast('Last round undone');
-  });
-
-  /* ── Render: full game ────────────────────────────────────────────────── */
-  function renderGame() {
-    renderScoreboard();
-    renderEntry();
-    renderHistory();
-    $('undo-btn').style.display = G.history.length ? 'inline-flex' : 'none';
-  }
-
-  /* ── Scoreboard ───────────────────────────────────────────────────────── */
-  function renderScoreboard() {
-    var max = Math.max(G.scores[0], G.scores[1], G.scores[2]);
-    var html = '';
-    for (var i = 0; i < 3; i++) {
-      var s    = G.scores[i];
-      var b    = G.bags[i];
-      var lead = (s === max && s > 0);
-      var bags = G.bagLimit > 0 ? ('🎒 ' + b + ' bag' + (b !== 1 ? 's' : '') + ' / ' + G.bagLimit)
-                                : ('🎒 ' + b + ' bag' + (b !== 1 ? 's' : ''));
-      html += '<div class="score-card' + (lead ? ' leader' : '') + '">'
-            + '<div class="p-name" title="' + x(G.names[i]) + '">' + x(G.names[i]) + '</div>'
-            + '<div class="p-score' + (s < 0 ? ' neg' : '') + '">' + s + '</div>'
-            + '<div class="p-bags">' + bags + '</div>'
-            + '</div>';
-    }
-    $('scoreboard').innerHTML = html;
-    $('round-label').textContent = 'Round ' + G.round + ' \xb7 Target: ' + G.target + ' pts';
-  }
-
-  /* ── Entry ────────────────────────────────────────────────────────────── */
-  function renderEntry() {
-    var isBid = G.phase === 'bid';
-    $('entry-title').textContent = isBid
-      ? ('Round ' + G.round + ' — Place Bids')
-      : ('Round ' + G.round + ' — Tricks Taken');
-    $('phase-btn').textContent = isBid ? 'Lock Bids →' : '✔ Score Round';
-
-    var grid = $('entry-grid');
-    var html = '';
-    for (var i = 0; i < 3; i++) {
-      if (isBid) {
-        var defVal = G.nils[i] ? 0 : (G.bids[i] !== null ? G.bids[i] : 3);
-        html += '<div class="entry-col">'
-              + '<div class="e-name">' + x(G.names[i]) + '</div>'
-              + '<div class="stepper">'
-              + '<button class="stepper-btn" data-step="-1" data-idx="' + i + '">−</button>'
-              + '<input type="number" id="inp' + i + '" min="0" max="17" value="' + defVal + '"' + (G.nils[i] ? ' disabled' : '') + ' />'
-              + '<button class="stepper-btn" data-step="1"  data-idx="' + i + '">+</button>'
-              + '</div>'
-              + '<label class="nil-label"><input type="checkbox" id="nil' + i + '"' + (G.nils[i] ? ' checked' : '') + ' data-idx="' + i + '" /> Nil</label>'
-              + '</div>';
-      } else {
-        var bidLabel = G.nils[i] ? 'Nil' : G.bids[i];
-        html += '<div class="entry-col">'
-              + '<div class="e-name">' + x(G.names[i]) + '</div>'
-              + '<div class="e-sub">bid: <strong>' + bidLabel + '</strong></div>'
-              + '<div class="stepper">'
-              + '<button class="stepper-btn" data-step="-1" data-idx="' + i + '">−</button>'
-              + '<input type="number" id="inp' + i + '" min="0" max="17" value="0" />'
-              + '<button class="stepper-btn" data-step="1"  data-idx="' + i + '">+</button>'
-              + '</div>'
-              + '</div>';
-      }
-    }
-    grid.innerHTML = html;
-
-    // Stepper buttons
-    var stepBtns = grid.querySelectorAll('.stepper-btn');
-    for (var s = 0; s < stepBtns.length; s++) {
-      (function (btn) {
-        btn.addEventListener('click', function () {
-          var idx  = parseInt(btn.getAttribute('data-idx'), 10);
-          var step = parseInt(btn.getAttribute('data-step'), 10);
-          var inp  = $('inp' + idx);
-          var cur  = parseInt(inp.value, 10) || 0;
-          inp.value = Math.max(0, Math.min(17, cur + step));
-          if (!isBid) updateTricksTotal();
-        });
-      }(stepBtns[s]));
-    }
-
-    // Nil checkboxes
+  var html = '';
+  for (var i = 0; i < 3; i++) {
     if (isBid) {
-      var cbs = grid.querySelectorAll('input[type="checkbox"]');
-      for (var c = 0; c < cbs.length; c++) {
-        (function (cb) {
-          cb.addEventListener('change', function () {
-            var idx = parseInt(cb.getAttribute('data-idx'), 10);
-            G.nils[idx] = cb.checked;
-            var inp = $('inp' + idx);
-            inp.disabled = cb.checked;
-            if (cb.checked) inp.value = 0;
-          });
-        }(cbs[c]));
-      }
-    }
-
-    // Tricks total live display
-    var tt = $('tricks-total');
-    tt.style.display = isBid ? 'none' : 'block';
-    if (!isBid) {
-      var numInputs = grid.querySelectorAll('input[type="number"]');
-      for (var n = 0; n < numInputs.length; n++) {
-        numInputs[n].addEventListener('input', updateTricksTotal);
-      }
-      updateTricksTotal();
-    }
-  }
-
-  function updateTricksTotal() {
-    var total = 0;
-    for (var i = 0; i < 3; i++) {
-      var el = $('inp' + i);
-      if (el) total += parseInt(el.value, 10) || 0;
-    }
-    var ok = total === 17;
-    $('tricks-total').innerHTML = 'Tricks total: <span class="count ' + (ok ? 'ok' : 'bad') + '">' + total + ' / 17</span>';
-  }
-
-  /* ── Submit bids ──────────────────────────────────────────────────────── */
-  function submitBids() {
-    for (var i = 0; i < 3; i++) {
-      if (!G.nils[i]) {
-        var v = parseInt($('inp' + i).value, 10);
-        if (isNaN(v) || v < 0 || v > 17) { toast(G.names[i] + ': bid must be 0–17'); return; }
-        G.bids[i] = v;
-      } else {
-        G.bids[i] = 0;
-      }
-    }
-    G.phase = 'tricks';
-    save();
-    renderGame();
-  }
-
-  /* ── Submit tricks ────────────────────────────────────────────────────── */
-  function submitTricks() {
-    var tricks = [];
-    for (var i = 0; i < 3; i++) {
-      var v = parseInt($('inp' + i).value, 10);
-      if (isNaN(v) || v < 0 || v > 17) { toast(G.names[i] + ': tricks must be 0–17'); return; }
-      tricks.push(v);
-    }
-    if (tricks[0] + tricks[1] + tricks[2] !== 17) { toast('Tricks must total 17'); return; }
-    scoreRound(tricks);
-  }
-
-  /* ── Scoring ──────────────────────────────────────────────────────────── */
-  function scoreRound(tricks) {
-    var deltas    = [0, 0, 0];
-    var bagDelta  = [0, 0, 0];
-    var penalties = [0, 0, 0];
-
-    for (var i = 0; i < 3; i++) {
-      var bid = G.bids[i];
-      var nil = G.nils[i];
-      var t   = tricks[i];
-      if (nil) {
-        deltas[i]   = (t === 0) ? 100 : -100;
-        if (t > 0) bagDelta[i] = t;
-      } else {
-        if (t >= bid) {
-          var over    = t - bid;
-          deltas[i]   = bid * 10 + over;
-          bagDelta[i] = over;
-        } else {
-          deltas[i] = -(bid * 10);
-        }
-      }
-
-      if (G.bagLimit > 0 && bagDelta[i] > 0) {
-        var before  = G.bags[i];
-        var after   = before + bagDelta[i];
-        var crossed = Math.floor(after / G.bagLimit) - Math.floor(before / G.bagLimit);
-        penalties[i] = crossed * 100;
-      }
-    }
-
-    // Snapshot for undo
-    var histRow = {
-      round:        G.round,
-      bids:         G.bids.slice(),
-      nils:         G.nils.slice(),
-      tricks:       tricks.slice(),
-      deltas:       [deltas[0] - penalties[0], deltas[1] - penalties[1], deltas[2] - penalties[2]],
-      scoresBefore: G.scores.slice(),
-      bagsBefore:   G.bags.slice(),
-    };
-    G.history.push(histRow);
-
-    // Apply
-    for (var j = 0; j < 3; j++) {
-      G.scores[j] += deltas[j] - penalties[j];
-      G.bags[j]   += bagDelta[j];
-    }
-
-    // Win check
-    if (Math.max(G.scores[0], G.scores[1], G.scores[2]) >= G.target) {
-      G.gameOver = true;
-      save();
-      showScreen(screenWin);
-      renderWin();
-      return;
-    }
-
-    G.phase = 'bid';
-    G.bids  = [null, null, null];
-    G.nils  = [false, false, false];
-    G.round++;
-    save();
-    renderGame();
-  }
-
-  /* ── Win ──────────────────────────────────────────────────────────────── */
-  function renderWin() {
-    var max = Math.max(G.scores[0], G.scores[1], G.scores[2]);
-    var winners = [];
-    for (var i = 0; i < 3; i++) { if (G.scores[i] === max) winners.push(G.names[i]); }
-    $('win-title').textContent = winners.length === 1 ? (winners[0] + ' wins!') : (winners.join(' & ') + ' tie!');
-    $('win-sub').textContent   = 'After ' + G.history.length + ' round' + (G.history.length !== 1 ? 's' : '');
-    var html = '';
-    for (var j = 0; j < 3; j++) {
-      var isW = G.scores[j] === max;
-      html += '<div class="fs-card' + (isW ? ' winner' : '') + '">'
-            + '<div class="fs-name">' + x(G.names[j]) + '</div>'
-            + '<div class="fs-val">'  + G.scores[j]   + '</div>'
+      var dv = G.nils[i] ? 0 : (G.bids[i] !== null ? G.bids[i] : 3);
+      html += '<div class="ec">'
+            + '<div class="en">' + esc(G.names[i]) + '</div>'
+            + '<div class="stepper">'
+            + '<button type="button" class="sb" onclick="step(' + i + ',-1)">-</button>'
+            + '<input type="number" id="inp' + i + '" min="0" max="17" value="' + dv + '"' + (G.nils[i] ? ' disabled' : '') + ' />'
+            + '<button type="button" class="sb" onclick="step(' + i + ',1)">+</button>'
+            + '</div>'
+            + '<label class="nil-lbl"><input type="checkbox" onchange="toggleNil(' + i + ',this)"' + (G.nils[i] ? ' checked' : '') + ' /> Nil bid</label>'
+            + '</div>';
+    } else {
+      var bl = G.nils[i] ? 'Nil' : G.bids[i];
+      html += '<div class="ec">'
+            + '<div class="en">' + esc(G.names[i]) + '</div>'
+            + '<div class="esub">bid: <strong>' + bl + '</strong></div>'
+            + '<div class="stepper">'
+            + '<button type="button" class="sb" onclick="step(' + i + ',-1)">-</button>'
+            + '<input type="number" id="inp' + i + '" min="0" max="17" value="0" />'
+            + '<button type="button" class="sb" onclick="step(' + i + ',1)">+</button>'
+            + '</div>'
             + '</div>';
     }
-    $('final-scores').innerHTML = html;
   }
+  document.getElementById('entry-grid').innerHTML = html;
 
-  /* ── History ──────────────────────────────────────────────────────────── */
-  function renderHistory() {
-    var card = $('history-card');
-    if (!G.history.length) { card.style.display = 'none'; return; }
-    card.style.display = 'block';
+  var tt = document.getElementById('tricks-total');
+  tt.style.display = isBid ? 'none' : 'block';
+  if (!isBid) updateTT();
+}
 
-    var headHtml = '<tr><th>Rnd</th>';
-    for (var n = 0; n < 3; n++) headHtml += '<th colspan="3">' + x(G.names[n]) + '</th>';
-    headHtml += '</tr><tr><th></th>';
-    for (var m = 0; m < 3; m++) headHtml += '<th>Bid</th><th>Got</th><th>Δ</th>';
-    headHtml += '</tr>';
-    $('hist-head').innerHTML = headHtml;
+function step(idx, dir) {
+  var el = document.getElementById('inp' + idx);
+  if (!el || el.disabled) return;
+  var v = (parseInt(el.value, 10) || 0) + dir;
+  el.value = v < 0 ? 0 : v > 17 ? 17 : v;
+  if (G.phase !== 'bid') updateTT();
+}
 
-    var bodyHtml = '';
-    for (var r = G.history.length - 1; r >= 0; r--) {
-      var row = G.history[r];
-      bodyHtml += '<tr><td>' + row.round + '</td>';
-      for (var i = 0; i < 3; i++) {
-        var nil = row.nils[i], t = row.tricks[i], d = row.deltas[i];
-        var cls = d > 0 ? 'pos' : d < 0 ? 'neg' : '';
-        var bidLabel = nil ? (t === 0 ? '<span class="nil-ok">Nil✓</span>' : '<span class="nil-bad">Nil✗</span>') : row.bids[i];
-        bodyHtml += '<td>' + bidLabel + '</td><td>' + t + '</td><td class="' + cls + '">' + (d > 0 ? '+' : '') + d + '</td>';
-      }
-      bodyHtml += '</tr>';
+function toggleNil(idx, cb) {
+  G.nils[idx] = cb.checked;
+  var inp = document.getElementById('inp' + idx);
+  inp.disabled = cb.checked;
+  if (cb.checked) inp.value = 0;
+}
+
+function updateTT() {
+  var t = 0;
+  for (var i = 0; i < 3; i++) {
+    var el = document.getElementById('inp' + i);
+    if (el) t += parseInt(el.value, 10) || 0;
+  }
+  var ok = (t === 17);
+  document.getElementById('tricks-total').innerHTML =
+    'Tricks total: <span class="cnt ' + (ok ? 'ok' : 'bad') + '">' + t + ' / 17</span>';
+}
+
+// ── Submit bids ────────────────────────────────────────────────────────────
+function submitBids() {
+  for (var i = 0; i < 3; i++) {
+    if (!G.nils[i]) {
+      var v = parseInt(document.getElementById('inp' + i).value, 10);
+      if (isNaN(v) || v < 0 || v > 17) { toast(G.names[i] + ': bid must be 0-17'); return; }
+      G.bids[i] = v;
+    } else {
+      G.bids[i] = 0;
     }
-    $('hist-body').innerHTML = bodyHtml;
+  }
+  G.phase = 'tricks';
+  storeSave();
+  renderAll();
+}
+
+// ── Submit tricks ──────────────────────────────────────────────────────────
+function submitTricks() {
+  var tricks = [];
+  for (var i = 0; i < 3; i++) {
+    var v = parseInt(document.getElementById('inp' + i).value, 10);
+    if (isNaN(v) || v < 0 || v > 17) { toast(G.names[i] + ': tricks must be 0-17'); return; }
+    tricks.push(v);
+  }
+  if (tricks[0] + tricks[1] + tricks[2] !== 17) { toast('Tricks must total 17'); return; }
+  scoreRound(tricks);
+}
+
+// ── Scoring ────────────────────────────────────────────────────────────────
+function scoreRound(tricks) {
+  var deltas = [0, 0, 0], bd = [0, 0, 0], pen = [0, 0, 0];
+  for (var i = 0; i < 3; i++) {
+    var bid = G.bids[i], nil = G.nils[i], t = tricks[i];
+    if (nil) {
+      deltas[i] = (t === 0) ? 100 : -100;
+      if (t > 0) bd[i] = t;
+    } else {
+      if (t >= bid) { var over = t - bid; deltas[i] = bid * 10 + over; bd[i] = over; }
+      else          { deltas[i] = -(bid * 10); }
+    }
+    if (G.bagLimit > 0 && bd[i] > 0) {
+      var bef = G.bags[i], aft = bef + bd[i];
+      var cross = Math.floor(aft / G.bagLimit) - Math.floor(bef / G.bagLimit);
+      pen[i] = cross * 100;
+    }
   }
 
-  /* ── Util ─────────────────────────────────────────────────────────────── */
-  function x(s) {
-    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  G.history.push({
+    round: G.round,
+    bids:  G.bids.slice(),
+    nils:  G.nils.slice(),
+    tricks: tricks.slice(),
+    deltas: [deltas[0]-pen[0], deltas[1]-pen[1], deltas[2]-pen[2]],
+    sb: G.scores.slice(),
+    bb: G.bags.slice()
+  });
+
+  for (var j = 0; j < 3; j++) {
+    G.scores[j] += deltas[j] - pen[j];
+    G.bags[j]   += bd[j];
   }
 
-}());
+  if (Math.max(G.scores[0], G.scores[1], G.scores[2]) >= G.target) {
+    G.gameOver = true;
+    storeSave();
+    showScreen('win-screen');
+    renderWin();
+    return;
+  }
+
+  G.phase = 'bid';
+  G.bids  = [null, null, null];
+  G.nils  = [false, false, false];
+  G.round++;
+  storeSave();
+  renderAll();
+}
+
+// ── Win screen ─────────────────────────────────────────────────────────────
+function renderWin() {
+  var max = Math.max(G.scores[0], G.scores[1], G.scores[2]);
+  var winners = [];
+  for (var i = 0; i < 3; i++) if (G.scores[i] === max) winners.push(G.names[i]);
+  document.getElementById('win-title').textContent =
+    winners.length === 1 ? (winners[0] + ' wins!') : (winners.join(' & ') + ' tie!');
+  document.getElementById('win-sub').textContent =
+    'After ' + G.history.length + ' round' + (G.history.length !== 1 ? 's' : '');
+  var html = '';
+  for (var j = 0; j < 3; j++) {
+    html += '<div class="fsc' + (G.scores[j] === max ? ' win' : '') + '">'
+          + '<div class="fn">' + esc(G.names[j]) + '</div>'
+          + '<div class="fv">' + G.scores[j] + '</div>'
+          + '</div>';
+  }
+  document.getElementById('fscores').innerHTML = html;
+}
+
+// ── History ────────────────────────────────────────────────────────────────
+function renderHistory() {
+  var card = document.getElementById('hcard');
+  if (!G.history.length) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  var hh = '<tr><th>Rnd</th>';
+  for (var n = 0; n < 3; n++) hh += '<th colspan="3">' + esc(G.names[n]) + '</th>';
+  hh += '</tr><tr><th></th>';
+  for (var m = 0; m < 3; m++) hh += '<th>Bid</th><th>Got</th><th>+/-</th>';
+  hh += '</tr>';
+  document.getElementById('hhead').innerHTML = hh;
+
+  var bh = '';
+  for (var r = G.history.length - 1; r >= 0; r--) {
+    var row = G.history[r];
+    bh += '<tr><td>' + row.round + '</td>';
+    for (var i = 0; i < 3; i++) {
+      var nil = row.nils[i], t = row.tricks[i], d = row.deltas[i];
+      var cls = d > 0 ? 'pos' : d < 0 ? 'neg' : '';
+      var bl  = nil ? (t === 0 ? '<span class="nok">Nil+</span>' : '<span class="nbad">Nil-</span>') : row.bids[i];
+      bh += '<td>' + bl + '</td><td>' + t + '</td><td class="' + cls + '">' + (d > 0 ? '+' : '') + d + '</td>';
+    }
+    bh += '</tr>';
+  }
+  document.getElementById('hbody').innerHTML = bh;
+}
+
+// ── Util ───────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 </script>
+
 </body>
 </html>
