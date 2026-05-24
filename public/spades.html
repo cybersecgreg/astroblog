@@ -439,104 +439,121 @@
 <div id="toast"></div>
 
 <script>
-(() => {
-  /* ── Persistence ───────────────────────────────────────────────────── */
-  const KEY = 'spades3_v2';
-  let G = null;
+(function () {
+  'use strict';
 
-  function save() { localStorage.setItem(KEY, JSON.stringify(G)); }
+  /* ── Persistence (resilient — localStorage may be blocked) ──────────── */
+  var KEY = 'spades3_v2';
+  var G = null;
+
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(G)); } catch (e) { /* storage blocked — game still works */ }
+  }
   function load() {
-    try { return JSON.parse(localStorage.getItem(KEY)); } catch { return null; }
+    try { return JSON.parse(localStorage.getItem(KEY)); } catch (e) { return null; }
+  }
+  function clearSave() {
+    try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ }
   }
 
-  /* ── DOM ───────────────────────────────────────────────────────────── */
-  const $ = id => document.getElementById(id);
-  const screens = { setup: $('setup-screen'), game: $('game-screen'), win: $('win-screen') };
+  /* ── DOM helpers ─────────────────────────────────────────────────────── */
+  function $(id) { return document.getElementById(id); }
 
-  function showScreen(name) {
-    Object.values(screens).forEach(s => s.classList.remove('active'));
-    screens[name].classList.add('active');
+  var screenSetup = $('setup-screen');
+  var screenGame  = $('game-screen');
+  var screenWin   = $('win-screen');
+
+  function showScreen(el) {
+    screenSetup.classList.remove('active');
+    screenGame.classList.remove('active');
+    screenWin.classList.remove('active');
+    el.classList.add('active');
   }
 
-  /* ── Toast ─────────────────────────────────────────────────────────── */
-  let toastTimer;
+  /* ── Toast ───────────────────────────────────────────────────────────── */
+  var toastTimer;
   function toast(msg) {
-    const el = $('toast');
+    var el = $('toast');
     el.textContent = msg;
     el.classList.add('show');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
+    toastTimer = setTimeout(function () { el.classList.remove('show'); }, 2400);
   }
 
-  /* ── Boot ──────────────────────────────────────────────────────────── */
+  /* ── Boot ────────────────────────────────────────────────────────────── */
   G = load();
   if (G) {
-    if (G.gameOver) renderWin();
-    else { showScreen('game'); renderGame(); }
+    if (G.gameOver) { showScreen(screenWin);  renderWin();  }
+    else            { showScreen(screenGame); renderGame(); }
   }
 
-  /* ── Setup ─────────────────────────────────────────────────────────── */
-  $('start-btn').addEventListener('click', () => {
-    const names = [
-      $('n0').value.trim() || 'Player 1',
-      $('n1').value.trim() || 'Player 2',
-      $('n2').value.trim() || 'Player 3',
+  /* ── Setup ───────────────────────────────────────────────────────────── */
+  $('start-btn').addEventListener('click', function () {
+    var names = [
+      ($('n0').value.trim() || 'Player 1'),
+      ($('n1').value.trim() || 'Player 2'),
+      ($('n2').value.trim() || 'Player 3'),
     ];
-    const target  = Math.max(50, parseInt($('cfg-target').value) || 300);
-    const bagLimit= Math.max(0, parseInt($('cfg-bags').value) ?? 10);
+    var target   = Math.max(50, parseInt($('cfg-target').value, 10) || 300);
+    var bagInput = parseInt($('cfg-bags').value, 10);
+    var bagLimit = isNaN(bagInput) ? 10 : Math.max(0, bagInput);
 
     G = {
-      names, target, bagLimit,
-      scores: [0, 0, 0],
-      bags:   [0, 0, 0],
-      round:  1,
-      phase:  'bid',
-      bids:   [null, null, null],
-      nils:   [false, false, false],
-      history: [],
+      names:    names,
+      target:   target,
+      bagLimit: bagLimit,
+      scores:   [0, 0, 0],
+      bags:     [0, 0, 0],
+      round:    1,
+      phase:    'bid',
+      bids:     [null, null, null],
+      nils:     [false, false, false],
+      history:  [],
       gameOver: false,
     };
     save();
-    showScreen('game');
+    showScreen(screenGame);
     renderGame();
   });
 
-  /* ── New game ──────────────────────────────────────────────────────── */
-  $('new-game-btn').addEventListener('click', () => {
-    if (!confirm('Abandon this game and start a new one?')) return;
+  /* ── New game / Play again ────────────────────────────────────────────── */
+  $('new-game-btn').addEventListener('click', function () {
+    if (!confirm('Start a new game? Current scores will be lost.')) return;
     goSetup();
   });
   $('play-again-btn').addEventListener('click', goSetup);
+
   function goSetup() {
-    localStorage.removeItem(KEY);
+    clearSave();
     G = null;
-    showScreen('setup');
+    showScreen(screenSetup);
   }
 
-  /* ── Phase button ──────────────────────────────────────────────────── */
-  $('phase-btn').addEventListener('click', () => {
+  /* ── Phase button ─────────────────────────────────────────────────────── */
+  $('phase-btn').addEventListener('click', function () {
+    if (!G) return;
     if (G.phase === 'bid') submitBids();
     else submitTricks();
   });
 
-  /* ── Undo ──────────────────────────────────────────────────────────── */
-  $('undo-btn').addEventListener('click', () => {
-    if (!G.history.length) return;
+  /* ── Undo ─────────────────────────────────────────────────────────────── */
+  $('undo-btn').addEventListener('click', function () {
+    if (!G || !G.history.length) return;
     if (!confirm('Undo the last completed round?')) return;
-    const snap = G.history.pop();
-    G.scores  = [...snap.scoresBefore];
-    G.bags    = [...snap.bagsBefore];
-    G.round   = snap.round;
-    G.phase   = 'bid';
-    G.bids    = [null, null, null];
-    G.nils    = [false, false, false];
+    var snap = G.history.pop();
+    G.scores   = snap.scoresBefore.slice();
+    G.bags     = snap.bagsBefore.slice();
+    G.round    = snap.round;
+    G.phase    = 'bid';
+    G.bids     = [null, null, null];
+    G.nils     = [false, false, false];
     G.gameOver = false;
     save();
     renderGame();
     toast('Last round undone');
   });
 
-  /* ── Render: full game ─────────────────────────────────────────────── */
+  /* ── Render: full game ────────────────────────────────────────────────── */
   function renderGame() {
     renderScoreboard();
     renderEntry();
@@ -544,107 +561,122 @@
     $('undo-btn').style.display = G.history.length ? 'inline-flex' : 'none';
   }
 
-  /* ── Scoreboard ────────────────────────────────────────────────────── */
+  /* ── Scoreboard ───────────────────────────────────────────────────────── */
   function renderScoreboard() {
-    const max = Math.max(...G.scores);
-    $('scoreboard').innerHTML = G.names.map((name, i) => {
-      const s = G.scores[i];
-      const b = G.bags[i];
-      const lead = s === max && s > 0;
-      return `<div class="score-card${lead ? ' leader' : ''}">
-        <div class="p-name" title="${x(name)}">${x(name)}</div>
-        <div class="p-score${s < 0 ? ' neg' : ''}">${s}</div>
-        <div class="p-bags">🎒 ${b} bag${b !== 1 ? 's' : ''}${G.bagLimit > 0 ? ` / ${G.bagLimit}` : ''}</div>
-      </div>`;
-    }).join('');
-
-    $('round-label').textContent = `Round ${G.round} · Target: ${G.target} pts`;
+    var max = Math.max(G.scores[0], G.scores[1], G.scores[2]);
+    var html = '';
+    for (var i = 0; i < 3; i++) {
+      var s    = G.scores[i];
+      var b    = G.bags[i];
+      var lead = (s === max && s > 0);
+      var bags = G.bagLimit > 0 ? ('🎒 ' + b + ' bag' + (b !== 1 ? 's' : '') + ' / ' + G.bagLimit)
+                                : ('🎒 ' + b + ' bag' + (b !== 1 ? 's' : ''));
+      html += '<div class="score-card' + (lead ? ' leader' : '') + '">'
+            + '<div class="p-name" title="' + x(G.names[i]) + '">' + x(G.names[i]) + '</div>'
+            + '<div class="p-score' + (s < 0 ? ' neg' : '') + '">' + s + '</div>'
+            + '<div class="p-bags">' + bags + '</div>'
+            + '</div>';
+    }
+    $('scoreboard').innerHTML = html;
+    $('round-label').textContent = 'Round ' + G.round + ' \xb7 Target: ' + G.target + ' pts';
   }
 
-  /* ── Entry ─────────────────────────────────────────────────────────── */
+  /* ── Entry ────────────────────────────────────────────────────────────── */
   function renderEntry() {
-    const isBid = G.phase === 'bid';
-    $('entry-title').textContent = isBid ? `Round ${G.round} — Place Bids` : `Round ${G.round} — Tricks Taken`;
-    $('phase-btn').textContent   = isBid ? 'Lock Bids →' : '✔ Score Round';
+    var isBid = G.phase === 'bid';
+    $('entry-title').textContent = isBid
+      ? ('Round ' + G.round + ' — Place Bids')
+      : ('Round ' + G.round + ' — Tricks Taken');
+    $('phase-btn').textContent = isBid ? 'Lock Bids →' : '✔ Score Round';
 
-    const grid = $('entry-grid');
-    grid.innerHTML = G.names.map((name, i) => {
+    var grid = $('entry-grid');
+    var html = '';
+    for (var i = 0; i < 3; i++) {
       if (isBid) {
-        return `<div class="entry-col">
-          <div class="e-name">${x(name)}</div>
-          <div class="stepper">
-            <button class="stepper-btn" data-step="-1" data-idx="${i}">−</button>
-            <input type="number" id="inp${i}" min="0" max="17" value="${G.nils[i] ? 0 : (G.bids[i] ?? 3)}" ${G.nils[i] ? 'disabled' : ''} />
-            <button class="stepper-btn" data-step="1"  data-idx="${i}">+</button>
-          </div>
-          <label class="nil-label">
-            <input type="checkbox" id="nil${i}" ${G.nils[i] ? 'checked' : ''} data-idx="${i}" /> Nil
-          </label>
-        </div>`;
+        var defVal = G.nils[i] ? 0 : (G.bids[i] !== null ? G.bids[i] : 3);
+        html += '<div class="entry-col">'
+              + '<div class="e-name">' + x(G.names[i]) + '</div>'
+              + '<div class="stepper">'
+              + '<button class="stepper-btn" data-step="-1" data-idx="' + i + '">−</button>'
+              + '<input type="number" id="inp' + i + '" min="0" max="17" value="' + defVal + '"' + (G.nils[i] ? ' disabled' : '') + ' />'
+              + '<button class="stepper-btn" data-step="1"  data-idx="' + i + '">+</button>'
+              + '</div>'
+              + '<label class="nil-label"><input type="checkbox" id="nil' + i + '"' + (G.nils[i] ? ' checked' : '') + ' data-idx="' + i + '" /> Nil</label>'
+              + '</div>';
       } else {
-        const bid = G.nils[i] ? 'Nil' : G.bids[i];
-        return `<div class="entry-col">
-          <div class="e-name">${x(name)}</div>
-          <div class="e-sub">bid: <strong>${bid}</strong></div>
-          <div class="stepper">
-            <button class="stepper-btn" data-step="-1" data-idx="${i}">−</button>
-            <input type="number" id="inp${i}" min="0" max="17" value="0" />
-            <button class="stepper-btn" data-step="1"  data-idx="${i}">+</button>
-          </div>
-        </div>`;
+        var bidLabel = G.nils[i] ? 'Nil' : G.bids[i];
+        html += '<div class="entry-col">'
+              + '<div class="e-name">' + x(G.names[i]) + '</div>'
+              + '<div class="e-sub">bid: <strong>' + bidLabel + '</strong></div>'
+              + '<div class="stepper">'
+              + '<button class="stepper-btn" data-step="-1" data-idx="' + i + '">−</button>'
+              + '<input type="number" id="inp' + i + '" min="0" max="17" value="0" />'
+              + '<button class="stepper-btn" data-step="1"  data-idx="' + i + '">+</button>'
+              + '</div>'
+              + '</div>';
       }
-    }).join('');
+    }
+    grid.innerHTML = html;
 
     // Stepper buttons
-    grid.querySelectorAll('.stepper-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const idx = parseInt(btn.dataset.idx);
-        const inp = $(`inp${idx}`);
-        const step= parseInt(btn.dataset.step);
-        const cur = parseInt(inp.value) || 0;
-        inp.value = Math.max(0, Math.min(17, cur + step));
-        if (!isBid) updateTricksTotal();
-      });
-    });
+    var stepBtns = grid.querySelectorAll('.stepper-btn');
+    for (var s = 0; s < stepBtns.length; s++) {
+      (function (btn) {
+        btn.addEventListener('click', function () {
+          var idx  = parseInt(btn.getAttribute('data-idx'), 10);
+          var step = parseInt(btn.getAttribute('data-step'), 10);
+          var inp  = $('inp' + idx);
+          var cur  = parseInt(inp.value, 10) || 0;
+          inp.value = Math.max(0, Math.min(17, cur + step));
+          if (!isBid) updateTricksTotal();
+        });
+      }(stepBtns[s]));
+    }
 
     // Nil checkboxes
     if (isBid) {
-      grid.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-        cb.addEventListener('change', () => {
-          const i = parseInt(cb.dataset.idx);
-          G.nils[i] = cb.checked;
-          const inp = $(`inp${i}`);
-          inp.disabled = cb.checked;
-          if (cb.checked) inp.value = 0;
-        });
-      });
+      var cbs = grid.querySelectorAll('input[type="checkbox"]');
+      for (var c = 0; c < cbs.length; c++) {
+        (function (cb) {
+          cb.addEventListener('change', function () {
+            var idx = parseInt(cb.getAttribute('data-idx'), 10);
+            G.nils[idx] = cb.checked;
+            var inp = $('inp' + idx);
+            inp.disabled = cb.checked;
+            if (cb.checked) inp.value = 0;
+          });
+        }(cbs[c]));
+      }
     }
 
     // Tricks total live display
-    const tt = $('tricks-total');
+    var tt = $('tricks-total');
     tt.style.display = isBid ? 'none' : 'block';
     if (!isBid) {
-      grid.querySelectorAll('input[type="number"]').forEach(inp => {
-        inp.addEventListener('input', updateTricksTotal);
-      });
+      var numInputs = grid.querySelectorAll('input[type="number"]');
+      for (var n = 0; n < numInputs.length; n++) {
+        numInputs[n].addEventListener('input', updateTricksTotal);
+      }
       updateTricksTotal();
     }
   }
 
   function updateTricksTotal() {
-    let total = 0;
-    for (let i = 0; i < 3; i++) total += parseInt($(`inp${i}`)?.value) || 0;
-    const tt = $('tricks-total');
-    const ok = total === 17;
-    tt.innerHTML = `Tricks total: <span class="count ${ok ? 'ok' : 'bad'}">${total} / 17</span>`;
+    var total = 0;
+    for (var i = 0; i < 3; i++) {
+      var el = $('inp' + i);
+      if (el) total += parseInt(el.value, 10) || 0;
+    }
+    var ok = total === 17;
+    $('tricks-total').innerHTML = 'Tricks total: <span class="count ' + (ok ? 'ok' : 'bad') + '">' + total + ' / 17</span>';
   }
 
-  /* ── Submit bids ───────────────────────────────────────────────────── */
+  /* ── Submit bids ──────────────────────────────────────────────────────── */
   function submitBids() {
-    for (let i = 0; i < 3; i++) {
+    for (var i = 0; i < 3; i++) {
       if (!G.nils[i]) {
-        const v = parseInt($(`inp${i}`).value);
-        if (isNaN(v) || v < 0 || v > 17) { toast(`${G.names[i]}: bid must be 0–17`); return; }
+        var v = parseInt($('inp' + i).value, 10);
+        if (isNaN(v) || v < 0 || v > 17) { toast(G.names[i] + ': bid must be 0–17'); return; }
         G.bids[i] = v;
       } else {
         G.bids[i] = 0;
@@ -655,33 +687,34 @@
     renderGame();
   }
 
-  /* ── Submit tricks ─────────────────────────────────────────────────── */
+  /* ── Submit tricks ────────────────────────────────────────────────────── */
   function submitTricks() {
-    const tricks = [];
-    for (let i = 0; i < 3; i++) {
-      const v = parseInt($(`inp${i}`).value);
-      if (isNaN(v) || v < 0 || v > 17) { toast(`${G.names[i]}: tricks must be 0–17`); return; }
+    var tricks = [];
+    for (var i = 0; i < 3; i++) {
+      var v = parseInt($('inp' + i).value, 10);
+      if (isNaN(v) || v < 0 || v > 17) { toast(G.names[i] + ': tricks must be 0–17'); return; }
       tricks.push(v);
     }
-    if (tricks.reduce((a, b) => a + b, 0) !== 17) { toast('Tricks must total 17'); return; }
-
+    if (tricks[0] + tricks[1] + tricks[2] !== 17) { toast('Tricks must total 17'); return; }
     scoreRound(tricks);
   }
 
-  /* ── Scoring ───────────────────────────────────────────────────────── */
+  /* ── Scoring ──────────────────────────────────────────────────────────── */
   function scoreRound(tricks) {
-    const deltas   = [0, 0, 0];
-    const bagDelta = [0, 0, 0];
-    const penalties= [0, 0, 0];
+    var deltas    = [0, 0, 0];
+    var bagDelta  = [0, 0, 0];
+    var penalties = [0, 0, 0];
 
-    for (let i = 0; i < 3; i++) {
-      const bid = G.bids[i], nil = G.nils[i], t = tricks[i];
+    for (var i = 0; i < 3; i++) {
+      var bid = G.bids[i];
+      var nil = G.nils[i];
+      var t   = tricks[i];
       if (nil) {
-        deltas[i] = t === 0 ? 100 : -100;
-        if (t > 0) bagDelta[i] = t;          // bags from failed nil
+        deltas[i]   = (t === 0) ? 100 : -100;
+        if (t > 0) bagDelta[i] = t;
       } else {
         if (t >= bid) {
-          const over = t - bid;
+          var over    = t - bid;
           deltas[i]   = bid * 10 + over;
           bagDelta[i] = over;
         } else {
@@ -689,35 +722,37 @@
         }
       }
 
-      // Bag penalty: each time accumulated bags cross a multiple of bagLimit
       if (G.bagLimit > 0 && bagDelta[i] > 0) {
-        const before = G.bags[i], after = before + bagDelta[i];
-        const crossed = Math.floor(after / G.bagLimit) - Math.floor(before / G.bagLimit);
+        var before  = G.bags[i];
+        var after   = before + bagDelta[i];
+        var crossed = Math.floor(after / G.bagLimit) - Math.floor(before / G.bagLimit);
         penalties[i] = crossed * 100;
       }
     }
 
-    // Snapshot
-    G.history.push({
+    // Snapshot for undo
+    var histRow = {
       round:        G.round,
-      bids:         [...G.bids],
-      nils:         [...G.nils],
-      tricks:       [...tricks],
-      deltas:       deltas.map((d, i) => d - penalties[i]),
-      scoresBefore: [...G.scores],
-      bagsBefore:   [...G.bags],
-    });
+      bids:         G.bids.slice(),
+      nils:         G.nils.slice(),
+      tricks:       tricks.slice(),
+      deltas:       [deltas[0] - penalties[0], deltas[1] - penalties[1], deltas[2] - penalties[2]],
+      scoresBefore: G.scores.slice(),
+      bagsBefore:   G.bags.slice(),
+    };
+    G.history.push(histRow);
 
     // Apply
-    for (let i = 0; i < 3; i++) {
-      G.scores[i] += deltas[i] - penalties[i];
-      G.bags[i]   += bagDelta[i];
+    for (var j = 0; j < 3; j++) {
+      G.scores[j] += deltas[j] - penalties[j];
+      G.bags[j]   += bagDelta[j];
     }
 
     // Win check
-    if (Math.max(...G.scores) >= G.target) {
+    if (Math.max(G.scores[0], G.scores[1], G.scores[2]) >= G.target) {
       G.gameOver = true;
       save();
+      showScreen(screenWin);
       renderWin();
       return;
     }
@@ -730,48 +765,58 @@
     renderGame();
   }
 
-  /* ── Win ───────────────────────────────────────────────────────────── */
+  /* ── Win ──────────────────────────────────────────────────────────────── */
   function renderWin() {
-    showScreen('win');
-    const max = Math.max(...G.scores);
-    const winners = G.names.filter((_, i) => G.scores[i] === max);
-    $('win-title').textContent = winners.length === 1 ? `${winners[0]} wins!` : `${winners.join(' & ')} tie!`;
-    $('win-sub').textContent   = `After ${G.history.length} round${G.history.length !== 1 ? 's' : ''}`;
-    $('final-scores').innerHTML = G.names.map((n, i) => {
-      const winner = G.scores[i] === max;
-      return `<div class="fs-card${winner ? ' winner' : ''}">
-        <div class="fs-name">${x(n)}</div>
-        <div class="fs-val">${G.scores[i]}</div>
-      </div>`;
-    }).join('');
+    var max = Math.max(G.scores[0], G.scores[1], G.scores[2]);
+    var winners = [];
+    for (var i = 0; i < 3; i++) { if (G.scores[i] === max) winners.push(G.names[i]); }
+    $('win-title').textContent = winners.length === 1 ? (winners[0] + ' wins!') : (winners.join(' & ') + ' tie!');
+    $('win-sub').textContent   = 'After ' + G.history.length + ' round' + (G.history.length !== 1 ? 's' : '');
+    var html = '';
+    for (var j = 0; j < 3; j++) {
+      var isW = G.scores[j] === max;
+      html += '<div class="fs-card' + (isW ? ' winner' : '') + '">'
+            + '<div class="fs-name">' + x(G.names[j]) + '</div>'
+            + '<div class="fs-val">'  + G.scores[j]   + '</div>'
+            + '</div>';
+    }
+    $('final-scores').innerHTML = html;
   }
 
-  /* ── History ───────────────────────────────────────────────────────── */
+  /* ── History ──────────────────────────────────────────────────────────── */
   function renderHistory() {
-    const card = $('history-card');
+    var card = $('history-card');
     if (!G.history.length) { card.style.display = 'none'; return; }
     card.style.display = 'block';
 
-    $('hist-head').innerHTML = `
-      <tr><th>Rnd</th>${G.names.map(n => `<th colspan="3">${x(n)}</th>`).join('')}</tr>
-      <tr><th></th>${G.names.map(() => '<th>Bid</th><th>Got</th><th>Δ</th>').join('')}</tr>`;
+    var headHtml = '<tr><th>Rnd</th>';
+    for (var n = 0; n < 3; n++) headHtml += '<th colspan="3">' + x(G.names[n]) + '</th>';
+    headHtml += '</tr><tr><th></th>';
+    for (var m = 0; m < 3; m++) headHtml += '<th>Bid</th><th>Got</th><th>Δ</th>';
+    headHtml += '</tr>';
+    $('hist-head').innerHTML = headHtml;
 
-    $('hist-body').innerHTML = [...G.history].reverse().map(r =>
-      `<tr><td>${r.round}</td>${r.bids.map((bid, i) => {
-        const nil = r.nils[i], t = r.tricks[i], d = r.deltas[i];
-        const cls = d > 0 ? 'pos' : d < 0 ? 'neg' : '';
-        const bidLabel = nil ? (t === 0 ? '<span class="nil-ok">Nil✓</span>' : '<span class="nil-bad">Nil✗</span>') : bid;
-        return `<td>${bidLabel}</td><td>${t}</td><td class="${cls}">${d > 0 ? '+' : ''}${d}</td>`;
-      }).join('')}</tr>`
-    ).join('');
+    var bodyHtml = '';
+    for (var r = G.history.length - 1; r >= 0; r--) {
+      var row = G.history[r];
+      bodyHtml += '<tr><td>' + row.round + '</td>';
+      for (var i = 0; i < 3; i++) {
+        var nil = row.nils[i], t = row.tricks[i], d = row.deltas[i];
+        var cls = d > 0 ? 'pos' : d < 0 ? 'neg' : '';
+        var bidLabel = nil ? (t === 0 ? '<span class="nil-ok">Nil✓</span>' : '<span class="nil-bad">Nil✗</span>') : row.bids[i];
+        bodyHtml += '<td>' + bidLabel + '</td><td>' + t + '</td><td class="' + cls + '">' + (d > 0 ? '+' : '') + d + '</td>';
+      }
+      bodyHtml += '</tr>';
+    }
+    $('hist-body').innerHTML = bodyHtml;
   }
 
-  /* ── Util ──────────────────────────────────────────────────────────── */
+  /* ── Util ─────────────────────────────────────────────────────────────── */
   function x(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-})();
+}());
 </script>
 </body>
 </html>
